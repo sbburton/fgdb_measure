@@ -1,0 +1,6 @@
+feature_class, uom_field, uom_value, value_field
+building, uomAreaSize, squareFoot, areaSize
+vehicleParking, uomAreaSize, squareYard, areaSize
+roadway, uomLengthSize, linearFoot, lengthSize
+fenceline, uomLengthSize, linearFoot, lengthSize
+
