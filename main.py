@@ -9,9 +9,10 @@ CROSSWALK_PATH = r"path/to/your/crosswalk.csv"
 import arcpy
 import pandas as pd
 import os
+from area_expressions import AREA_EXPRESSIONS, LENGTH_EXPRESSIONS
 
 def list_all_feature_classes(gdb_path):
-    """List all feature classes more efficiently"""
+    """List all feature classes efficiently"""
     arcpy.env.workspace = gdb_path
     fc_list = []
     
@@ -25,39 +26,38 @@ def list_all_feature_classes(gdb_path):
     return fc_list
 
 def process_feature_class(fc_name, gdb_path, crosswalk_df):
-    """Process a single feature class more efficiently"""
-    fc_map = crosswalk_df[crosswalk_df['feature_class_name'] == fc_name].iloc[0]
+    """Process a single feature class"""
+    fc_map = crosswalk_df[crosswalk_df['feature_class'] == fc_name].iloc[0]
     fc_path = os.path.join(gdb_path, fc_name)
     
-    # Calculate areas using a single SQL expression
-    area_field = fc_map['fc_field_name']
-    uom = fc_map['fc_uom']
+    value_field = fc_map['value_field']
+    uom_value = fc_map['uom_value']
     
-    # Create SQL expression based on UOM
-    area_expr = {
-        'squareFeet': '!shape.area@SQUAREFEET!',
-        'squareMeters': '!shape.area@SQUAREMETERS!',
-        'acres': '!shape.area@ACRES!',
-        'hectares': '!shape.area@HECTARES!'
-    }
+    # Check if UOM is in either area or length expressions
+    if uom_value in AREA_EXPRESSIONS:
+        expression = AREA_EXPRESSIONS[uom_value]
+    elif uom_value in LENGTH_EXPRESSIONS:
+        expression = LENGTH_EXPRESSIONS[uom_value]
+    else:
+        raise ValueError(f"Unsupported UOM: {uom_value}")
     
-    if uom in area_expr:
-        # Update both fields in a single calculation
+    # Calculate the field
+    arcpy.management.CalculateField(
+        in_table=fc_path,
+        field=value_field,
+        expression=expression,
+        expression_type='PYTHON3'
+    )
+    
+    # Update UOM field if needed
+    if fc_map['uom_field']:
         arcpy.management.CalculateField(
             in_table=fc_path,
-            field=area_field,
-            expression=area_expr[uom],
+            field=fc_map['uom_field'],
+            expression=f"'{uom_value}'",
             expression_type='PYTHON3'
         )
-        
-        # Update UOM field if needed
-        if fc_map['fc_uom']:
-            arcpy.management.CalculateField(
-                in_table=fc_path,
-                field=fc_map['fc_uom'],
-                expression=f"'{uom}'",
-                expression_type='PYTHON3'
-            )
+
     else:
         raise ValueError(f"Unsupported UOM: {uom}")
 
